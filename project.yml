@@ -1,0 +1,62 @@
+name: MediMate
+options:
+  bundleIdPrefix: edu.sliit.se4041
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    SWIFT_STRICT_CONCURRENCY: minimal
+    IPHONEOS_DEPLOYMENT_TARGET: '17.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+    GENERATE_INFOPLIST_FILE: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  MediMate:
+    type: application
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources:
+      - path: MediMate
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.sliit.se4041.MediMate
+        INFOPLIST_FILE: MediMate/Info.plist
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  MediMateTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources:
+      - path: MediMateTests
+    dependencies:
+      - target: MediMate
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.sliit.se4041.MediMateTests
+        GENERATE_INFOPLIST_FILE: YES
+  MediMateUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources:
+      - path: MediMateUITests
+    dependencies:
+      - target: MediMate
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: edu.sliit.se4041.MediMateUITests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  MediMate:
+    build:
+      targets:
+        MediMate: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - MediMateTests
+        - MediMateUITests

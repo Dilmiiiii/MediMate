@@ -1,0 +1,96 @@
+# MediMate — native SwiftUI iPad build without owning a Mac.
+# A public repo on standard GitHub-hosted runners has no runner-minute charge.
+# Output is UNSIGNED: install it on Windows with Sideloadly and your own Apple ID.
+name: MediMate - Free iPad IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'MediMate/**'
+      - 'MediMateTests/**'
+      - 'MediMateUITests/**'
+      - 'project.yml'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: medimate-ipad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ipad-ipa:
+    name: Build unsigned iPad IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the MediMate code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: |
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen version
+
+      - name: Generate Xcode project
+        run: xcodegen generate --spec project.yml
+
+      - name: Compile for a physical iPad or iPhone, without signing
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project MediMate.xcodeproj \
+            -scheme MediMate \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/MediMateDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee "$RUNNER_TEMP/medimate-build.log"
+
+      - name: Package MediMate as an unsigned IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/MediMateDerivedData/Build/Products/Release-iphoneos/MediMate.app"
+          test -d "$APP" || { echo 'MediMate.app not found'; exit 1; }
+          PKG="$RUNNER_TEMP/MediMatePackage"
+          mkdir -p "$PKG/Payload" "$GITHUB_WORKSPACE/dist"
+          ditto "$APP" "$PKG/Payload/MediMate.app"
+          rm -rf "$PKG/Payload/MediMate.app/_CodeSignature"
+          rm -f "$PKG/Payload/MediMate.app/embedded.mobileprovision"
+          (cd "$PKG" && zip -qry "$GITHUB_WORKSPACE/dist/MediMate-unsigned.ipa" Payload)
+          unzip -t "$GITHUB_WORKSPACE/dist/MediMate-unsigned.ipa" | tail -1
+          du -h "$GITHUB_WORKSPACE/dist/MediMate-unsigned.ipa"
+
+      - name: Upload unsigned app (download from the Actions run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediMate-iPad-unsigned-IPA
+          path: dist/MediMate-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Explain the next step
+        if: success()
+        shell: bash
+        run: |
+          echo '## MediMate iPad package generated ✅' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '1. Download **MediMate-iPad-unsigned-IPA** from this successful build under **Artifacts**.' >> "$GITHUB_STEP_SUMMARY"
+          echo '2. Unzip the GitHub artifact download to find **MediMate-unsigned.ipa**.' >> "$GITHUB_STEP_SUMMARY"
+          echo '3. On Windows, use [Sideloadly](https://sideloadly.io/) to sign and install it using your **own free Apple ID**.' >> "$GITHUB_STEP_SUMMARY"
+          echo '4. This IPA is intentionally unsigned. It cannot be installed directly from Safari or Files.' >> "$GITHUB_STEP_SUMMARY"
+          echo '5. Free signing usually needs refreshing every 7 days. Sideloadly can automate this with a connected or Wi-Fi-paired iPad.' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '**Important:** Do not place Apple passwords, developer certificates, or private medical data in this repository.' >> "$GITHUB_STEP_SUMMARY"
